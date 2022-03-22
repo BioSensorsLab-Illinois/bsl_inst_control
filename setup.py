@@ -8,7 +8,7 @@ setup(
   author = 'Zhongmin Zhu',                   # Type in your name
   author_email = 'j@metadata.cc',      # Type in your E-Mail
   url = 'https://github.com/BioSensorsLab-Illinois/bsl_inst_control',   # Provide either the link to your github or to your website
-  download_url = 'https://github.com/user/reponame/archive/v_01.tar.gz',    # I explain this later on
+  download_url = 'https://github.com/BioSensorsLab-Illinois/bsl_inst_control/archive/refs/tags/Testing.tar.gz',    # I explain this later on
   keywords = ['BSL', 'Instrument', 'UIUC'],   # Keywords that define your package best
   install_requires=[            # I get to this in a second
           'loguru',

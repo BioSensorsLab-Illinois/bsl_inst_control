@@ -1,6 +1,7 @@
-import lib.Instruments._PM100D as _PM100D
-import lib.Instruments._M69920 as _M69920
-import lib.Instruments._HR4000CG as _HR4000CG
+from .bsl_lib.Instruments import _PM100D
+from .bsl_lib.Instruments import _HR4000CG
+from .bsl_lib.Instruments import _M69920
+
 from loguru import logger
 import sys
 
