@@ -1,5 +1,6 @@
 from loguru import logger
-from ._bsl_inst_list import bsl_instrument_list
+from .._bsl_inst_info import bsl_inst_info_list
+
 import time
 from serial.tools.list_ports import comports
 import serial
@@ -13,7 +14,7 @@ class bsl_serial:
     class DeviceConnectionFailed(CustomError):
         pass
     
-    def __init__(self, target_inst:bsl_instrument_list , device_sn:str="") -> None:
+    def __init__(self, target_inst:bsl_inst_info_list , device_sn:str="") -> None:
         logger_opt.info("Initiating bsl_serial_service...")
 
         self.inst = target_inst

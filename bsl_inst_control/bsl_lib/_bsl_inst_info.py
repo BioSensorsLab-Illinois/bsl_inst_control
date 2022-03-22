@@ -1,20 +1,7 @@
-class bsl_instrument:
-    def __init__(self, *, MANUFACTURE:str="N/A", MODEL:str="N/A", TYPE:str="N/A", INTERFACE:str="Serial", BAUDRATE:int=0, SERIAL_NAME:str="N/A", USB_PID:str="N/A", USB_VID:str="N/A", QUERY_CMD:str="N/A", QUERY_E_RESP:str="N/A", SN_REG=".*", QUERY_SN_CMD=""):
-        self.MANUFACTURE            =   MANUFACTURE
-        self.MODEL                  =   MODEL              
-        self.TYPE                   =   TYPE               
-        self.BAUDRATE               =   BAUDRATE           
-        self.SERIAL_NAME            =   SERIAL_NAME          
-        self.USB_PID                =   USB_PID  
-        self.USB_VID                =   USB_VID     
-        self.QUERY_CMD              =   QUERY_CMD   
-        self.QUERY_E_RESP           =   QUERY_E_RESP
-        self.QUERY_SN_CMD           =   QUERY_SN_CMD
-        self.INTERFACE              =   INTERFACE
-        self.SN_REG                 =   SN_REG
+from _bsl_inst_info_class import bsl_inst_info_class
 
-class bsl_instrument_list:
-    PM100D = bsl_instrument(
+class bsl_inst_info_list:
+    PM100D = bsl_inst_info_class(
         MANUFACTURE="THORLAB",
         MODEL="PM100D",
         TYPE="Power Meter",
@@ -27,7 +14,7 @@ class bsl_instrument_list:
         SN_REG="(?<=,)P[0-9]+(?=,)"
     )
 
-    M69920 = bsl_instrument(
+    M69920 = bsl_inst_info_class(
         MANUFACTURE="Newport",
         MODEL="M69920",
         TYPE="Power Supply",
@@ -38,7 +25,7 @@ class bsl_instrument_list:
         QUERY_E_RESP="69920"
     )
 
-    HR4000CG = bsl_instrument(
+    HR4000CG = bsl_inst_info_class(
         MANUFACTURE="Ocean Optics",
         MODEL="HR4000CG",
         TYPE="Spectrometer",
@@ -48,7 +35,7 @@ class bsl_instrument_list:
         USB_VID="???"
     )
 
-    TEST_DEVICE_NO_BAUD = bsl_instrument(
+    TEST_DEVICE_NO_BAUD = bsl_inst_info_class(
         MANUFACTURE="BSL",
         MODEL="TEST_DEVICE_BAUD",
         TYPE="TEST_DEVICE_BAUD",
@@ -62,7 +49,7 @@ class bsl_instrument_list:
         SN_REG="(?<=,)P[0-9]+(?=,)"
     )
 
-    TEST_DEVICE_BAUD = bsl_instrument(
+    TEST_DEVICE_BAUD = bsl_inst_info_class(
         MANUFACTURE="BSL",
         MODEL="TEST_DEVICE_NO_BAUD",
         TYPE="TEST_DEVICE_BAUD",

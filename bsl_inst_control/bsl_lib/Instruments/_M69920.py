@@ -2,9 +2,8 @@ import enum
 import loguru
 from loguru import logger
 import time
-
-from .._bsl_serial import bsl_serial
-from .._bsl_inst_list import bsl_instrument_list as inst
+from ..Interface._bsl_serial import bsl_serial
+from .._bsl_inst_info import bsl_inst_info_list as inst
 
 logger_opt = logger.opt(ansi=True)
 

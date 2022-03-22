@@ -1,5 +1,5 @@
 from loguru import logger
-from ._bsl_inst_list import bsl_instrument_list
+from .._bsl_inst_info import bsl_inst_info_list
 import re
 try:
     import pyvisa as pyvisa
@@ -14,7 +14,7 @@ class bsl_visa:
     class DeviceConnectionFailed(CustomError):
         pass
     
-    def __init__(self, target_inst:bsl_instrument_list, device_sn:str="") -> None:
+    def __init__(self, target_inst:bsl_inst_info_list, device_sn:str="") -> None:
         #Init logger_opt by inherit from parent process or using a new one if no parent logger_opt
         logger_opt.info("    Initiating bsl_visa_service...")
         self.visa_resource_manager = pyvisa.ResourceManager()

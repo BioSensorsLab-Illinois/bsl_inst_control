@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 setup(
   name = 'bsl_inst_control',         # How you named your package folder (MyLib)
   packages = find_packages(),   # Chose the same as "name"
-  version = '0.4',      # Start with a small number and increase it with every change you make
+  version = '0.51',      # Start with a small number and increase it with every change you make
   license='MIT',        # Chose a license from here: https://help.github.com/articles/licensing-a-repository
   description = 'Universal Instrument Control for BioSensors Lab @ UIUC',   # Give a short description about your library
   author = 'Zhongmin Zhu',                   # Type in your name

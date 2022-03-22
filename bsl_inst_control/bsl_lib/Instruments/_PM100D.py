@@ -1,8 +1,8 @@
 from loguru import logger
 import time
 
-from .._bsl_visa import bsl_visa
-from .._bsl_inst_list import bsl_instrument_list as inst
+from ..Interface._bsl_visa import bsl_visa
+from .._bsl_inst_info import bsl_inst_info_list as inst
 
 logger_opt = logger.opt(ansi=True)
 
