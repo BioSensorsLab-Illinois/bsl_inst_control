@@ -1,7 +1,8 @@
 from loguru import logger
 import time
-from .. import _bsl_visa as bsl_visa
-from .. import _bsl_inst_list as inst
+
+from .._bsl_visa import bsl_visa
+import _bsl_inst_list as inst
 
 logger = logger.opt(ansi=True)
 
@@ -16,7 +17,7 @@ class PM100D:
 
     def __init__(self, device_sn:str="") -> None:
         logger.info(f"Initiating bsl_instrument - PM100D({device_sn})...")
-
+        
         if self._com_connect(device_sn):
             self.run_update_power_meter()
             logger.success(f"READY - Thorlab PM100D Power Meter \"{self.device_id}\" with sensor \"{self.sensor_id}\".\n\n")
