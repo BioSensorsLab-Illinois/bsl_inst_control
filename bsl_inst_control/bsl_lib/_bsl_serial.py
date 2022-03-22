@@ -4,9 +4,9 @@ import time
 from serial.tools.list_ports import comports
 import serial
 import re
-logger = logger.opt(ansi=True)
+logger_opt = logger.opt(ansi=True)
 
-@logger.catch
+@logger_opt.catch
 class bsl_serial:
     class CustomError(Exception):
         pass
@@ -14,20 +14,20 @@ class bsl_serial:
         pass
     
     def __init__(self, target_inst:bsl_instrument_list , device_sn:str="") -> None:
-        logger.info("Initiating bsl_serial_service...")
+        logger_opt.info("Initiating bsl_serial_service...")
 
         self.inst = target_inst
         self.target_device_sn = device_sn
         self.serial_port = self._find_device()
         if self.serial_port is None:
-            logger.error(f"<light-blue><italic>{self.inst.MODEL} ({self.target_device_sn})</italic></light-blue> not found on serial ports.")
+            logger_opt.error(f"<light-blue><italic>{self.inst.MODEL} ({self.target_device_sn})</italic></light-blue> not found on serial ports.")
         pass
               
     def _connect_serial_device(self) -> serial.Serial:
         if self._find_device():
             with serial.Serial(self.serial_port_name, self.baudrate, timeout=1) as device:
                 return device
-        logger.error(f"<light-blue><italic>{self.inst.MODEL} ({self.target_device_sn})</italic></light-blue> not found on serial ports.")
+        logger_opt.error(f"<light-blue><italic>{self.inst.MODEL} ({self.target_device_sn})</italic></light-blue> not found on serial ports.")
         raise self.DeviceConnectionFailed
         return None
 
@@ -38,17 +38,17 @@ class bsl_serial:
         #Aquire all available Serial COM ports.
         com_ports_list = list(comports())
         target_port = None
-        logger.trace(f"    Devices found on bus:{str(com_ports_list)}")
+        logger_opt.trace(f"    Devices found on bus:{str(com_ports_list)}")
         #Search for target device with the name of the USB device.
         for port in com_ports_list:
             temp_port = None
             
             if self.inst.SERIAL_NAME in port[1]:
-                logger.debug(f"    Specified device <light-blue><italic>{self.inst.MODEL}</italic></light-blue> with Serial_Name <light-blue><italic>{self.inst.SERIAL_NAME} found on port <light-blue><italic>{port[0]}</italic></light-blue> by Device name search.")
+                logger_opt.debug(f"    Specified device <light-blue><italic>{self.inst.MODEL}</italic></light-blue> with Serial_Name <light-blue><italic>{self.inst.SERIAL_NAME} found on port <light-blue><italic>{port[0]}</italic></light-blue> by Device name search.")
                 temp_port = port[0]
             
             if (self.inst.USB_PID in port[2]) or (str(int(self.inst.USB_PID,16)) in port[2]):
-                logger.debug(f"    Specified device <light-blue><italic>{self.inst.MODEL}</italic></light-blue> with USB_PID: <light-blue><italic>{self.inst.USB_PID}</italic></light-blue> found on port <light-blue><italic>{port[0]}</italic></light-blue> by USB_PID search.")
+                logger_opt.debug(f"    Specified device <light-blue><italic>{self.inst.MODEL}</italic></light-blue> with USB_PID: <light-blue><italic>{self.inst.USB_PID}</italic></light-blue> found on port <light-blue><italic>{port[0]}</italic></light-blue> by USB_PID search.")
                 temp_port = port[0]
             
             if temp_port is not None:
@@ -80,27 +80,27 @@ class bsl_serial:
         # Try to communicate with the device with each possible baudrate
         try:
             for baudrate in baudrates:
-                logger.debug(f"    Inquiring serial port <light-blue><italic>{temp_port}</italic></light-blue> with Baudrate={baudrate}")
+                logger_opt.debug(f"    Inquiring serial port <light-blue><italic>{temp_port}</italic></light-blue> with Baudrate={baudrate}")
                 # Try to open the serial port
                 with serial.Serial(temp_port, baudrate, timeout=0.5) as device:
-                    logger.trace(f"        Connected to <light-blue><italic>{device.name}</italic></light-blue> on port <light-blue><italic>{temp_port}</italic></light-blue>")
+                    logger_opt.trace(f"        Connected to <light-blue><italic>{device.name}</italic></light-blue> on port <light-blue><italic>{temp_port}</italic></light-blue>")
                     # Query the device with QUERY_CMD
                     device.reset_input_buffer()
                     device.write(bytes(self.inst.QUERY_CMD+'\n','ascii'))
-                    logger.trace(f"        Querry <light-blue><italic>{self.inst.QUERY_CMD}</italic></light-blue> sent to <light-blue><italic>{device.name}</italic></light-blue>")
+                    logger_opt.trace(f"        Querry <light-blue><italic>{self.inst.QUERY_CMD}</italic></light-blue> sent to <light-blue><italic>{device.name}</italic></light-blue>")
                     time.sleep(0.1)
                     resp = device.read(100).decode("ascii")
-                    logger.trace(f"        Response from <light-blue><italic>{device.name}</italic></light-blue>: \"{resp}\"")
+                    logger_opt.trace(f"        Response from <light-blue><italic>{device.name}</italic></light-blue>: \"{resp}\"")
                     # Check if the response contains expected string and s/n number, if true, port found.
                     if self.inst.QUERY_E_RESP in resp:
-                        logger.debug(f"    <light-blue><italic>{self.inst.MODEL}</italic></light-blue> found on serial bus on port <light-blue><italic>{temp_port}</italic></light-blue>.")
+                        logger_opt.debug(f"    <light-blue><italic>{self.inst.MODEL}</italic></light-blue> found on serial bus on port <light-blue><italic>{temp_port}</italic></light-blue>.")
                         # Check S/N to confirm matching
                         device.reset_input_buffer()
                         device.write(bytes(self.inst.QUERY_SN_CMD+'\n','ascii'))
-                        logger.trace(f"        Querry <light-blue><italic>{self.inst.QUERY_SN_CMD}</italic></light-blue> sent to <light-blue><italic>{device.name}\"")
+                        logger_opt.trace(f"        Querry <light-blue><italic>{self.inst.QUERY_SN_CMD}</italic></light-blue> sent to <light-blue><italic>{device.name}\"")
                         time.sleep(0.1)
                         resp = device.read(100).decode("ascii")
-                        logger.trace(f"        Response from <light-blue><italic>{device.name}</italic></light-blue>: \"{resp}\"")
+                        logger_opt.trace(f"        Response from <light-blue><italic>{device.name}</italic></light-blue>: \"{resp}\"")
                         # Use provided regular expression to extract device S/N number
                         device_id = re.search(self.inst.SN_REG, resp).group(0)
                         device.close()
@@ -109,11 +109,11 @@ class bsl_serial:
                             self.device_id = device_id
                             return (temp_port, baudrate) 
                         # Able to confirm device model number, but mismatch S/N number
-                        logger.warning(f"    S/N Mismatch - Device <light-blue><italic>{temp_port}</italic></light-blue> with S/N <light-blue><italic>{device_id}\" found, not \"{self.target_device_sn}\" as requested, moving to next available device...")
+                        logger_opt.warning(f"    S/N Mismatch - Device <light-blue><italic>{temp_port}</italic></light-blue> with S/N <light-blue><italic>{device_id}\" found, not \"{self.target_device_sn}\" as requested, moving to next available device...")
                         break
                     device.close()
         except serial.SerialException:
-            logger.warning(f"    BUSY - Device <light-blue><italic>{temp_port}</italic></light-blue> is busy, moving to next available device...")
+            logger_opt.warning(f"    BUSY - Device <light-blue><italic>{temp_port}</italic></light-blue> is busy, moving to next available device...")
             return None,None
         return None,None
 

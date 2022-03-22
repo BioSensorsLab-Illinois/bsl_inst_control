@@ -1,6 +1,6 @@
 import seabreeze.spectrometers as sb
 
-import _bsl_inst_list as inst
+from .._bsl_inst_list import bsl_instrument_list as inst
 import numpy
 from numpy.typing import NDArray
 from loguru import logger

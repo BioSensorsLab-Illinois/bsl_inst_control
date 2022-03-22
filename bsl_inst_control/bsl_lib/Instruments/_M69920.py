@@ -4,7 +4,9 @@ from loguru import logger
 import time
 
 from .._bsl_serial import bsl_serial
-import _bsl_inst_list as inst
+from .._bsl_inst_list import bsl_instrument_list as inst
+
+logger_opt = logger.opt(ansi=True)
 
 class M69920:
     class CustomError(Exception):
