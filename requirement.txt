@@ -1,7 +1,0 @@
-numpy
-loguru
-pyserial
-pyvisa
-pyvisa-py
-libusb
-seabreeze
