@@ -26,6 +26,10 @@ class PM100D:
             raise bsl_visa.DeviceConnectionFailed
         pass
 
+    def __del__(self, *args, **kwargs) -> None:
+        self.close()
+        return None
+
     def _com_connect(self, device_sn:str) -> bool:
         self.com = bsl_visa(inst.PM100D, device_sn)
         if self.com.com_port is None:
@@ -35,6 +39,8 @@ class PM100D:
 
     def close(self) -> None:
         self.com.terminate()
+        del self.com
+        logger.info(f"CLOSED - Thorlab PM100D Power Meter \"{self.device_id}\"\n\n")
         pass
 
     def run_update_power_meter(self) -> None:

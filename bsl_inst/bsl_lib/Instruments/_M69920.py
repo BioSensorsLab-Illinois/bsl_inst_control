@@ -36,6 +36,10 @@ class M69920:
             raise bsl_serial.DeviceConnectionFailed
         pass
 
+    def __del__(self, *args, **kwargs) -> None:
+        self.close()
+        return None
+
     def _serial_connect(self) -> bool:
         self.serial = bsl_serial(inst.M69920)
         if self.serial.serial_port is None:
@@ -44,6 +48,9 @@ class M69920:
     
     def close(self) -> None:
         self.serial.terminate()
+        del self.serial
+        self.shut_down()
+        logger.info(f"CLOSED - M69920 Monochromator lamp's power supply \"{self.device_id}\"\n\n")
         pass
 
     def lamp_ON(self) -> None:
@@ -365,10 +372,9 @@ class M69920:
     def _get_lamp_id(self):
         pass
     
-    def terminate(self) -> None:
+    def shut_down(self) -> None:
         self.lamp_OFF()
         self.set_lamp_current(0.0)
         self.set_lamp_power(0.0)
         self.unlock_front_panel()
-        self._serial_disconnect()
         pass

@@ -1,4 +1,4 @@
-from _bsl_inst_info_class import bsl_inst_info_class
+from ._bsl_inst_info_class import bsl_inst_info_class
 
 class bsl_inst_info_list:
     PM100D = bsl_inst_info_class(

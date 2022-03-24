@@ -1,3 +1,4 @@
+import seabreeze
 import seabreeze.spectrometers as sb
 from .._bsl_inst_info import bsl_inst_info_list as inst
 import numpy
@@ -16,9 +17,16 @@ class spec:
         logger.info(f"Initiating bsl_instrument - SPEC({device_sn})...")
         self.inst = inst.HR4000CG
         self.target_device_sn = device_sn
+        self.device_id=""
+        self.device_model=""
+
         self.__connect_spectrometer()
         if self.spec is not None:
             logger.success(f"READY - OceanOptics PM100D Spectrometer \"{self.device_id}\"\n\n")
+        return None
+
+    def __del__(self, *args, **kwargs) -> None:
+        self.close()
         return None
 
     def __connect_spectrometer(self) -> None:
@@ -33,14 +41,18 @@ class spec:
         if len(sb.list_devices()) == 0:
             logger.opt(ansi=True).error(f"<light-blue><italic>{self.inst.MODEL} ({self.target_device_sn})</italic></light-blue> not found on communication bus.")
             raise self.DeviceConnectionFailed
+        
         logger.trace(f"    Devices found on bus: {str(sb.list_devices())}")
         try:
-            if self.target_device_sn is not None:
+            if self.target_device_sn is (None or ""):
                 # with sb.Spectrometer.from_first_available() as spec_device:
                 self.spec = sb.Spectrometer.from_first_available()
-            else:
+            elif self.target_device_sn in str(sb.list_devices()):
                 # with sb.Spectrometer.from_serial_number(self.target_device_sn) as spec_device:
                 self.spec = sb.Spectrometer.from_serial_number(self.target_device_sn)
+            else:
+                logger.error(f"FAILED - Device[s] found on the bus, but failed to find requested device with s/n: \"{self.target_device_sn}\".")
+                raise self.DeviceConnectionFailed
         except:
             logger.error(f"FAILED - Device[s] found on the communication bus, but failed to make connection.")
             raise self.DeviceConnectionFailed
@@ -156,6 +168,9 @@ class spec:
         return self.spec.pixels
 
     def close(self) -> None:
-        self.spec.close()
+        if self.spec is not None:
+            self.spec.close()
+            del self.spec
+        logger.info(f"CLOSED - OceanOptics PM100D Spectrometer \"{self.device_id}\"\n\n")
         return None
 
