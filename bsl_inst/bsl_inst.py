@@ -10,6 +10,7 @@ __is_logger_ready = False
 
 @staticmethod
 def init_logger(LOG_LEVEL:str="DEBUG"):
+    global __is_logger_ready
     format_str = "<cyan>{time:MM-DD at HH:mm:ss}</cyan> | <level>{level:7}</level> | {file:15}:{line:4} | <level>{message}</level>"
     logger.remove()
     logger.add(sys.stdout, colorize=True, format=format_str, level=LOG_LEVEL, diagnose=False)

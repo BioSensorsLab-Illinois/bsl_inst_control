@@ -3,17 +3,12 @@ import time
 
 from ..Interface._bsl_visa import bsl_visa
 from .._bsl_inst_info import bsl_inst_info_list as inst
+from .._bsl_type import bsl_type
 
 logger_opt = logger.opt(ansi=True)
 
-@logger_opt.catch
+@logger_opt.catch(exclude=(bsl_type.DeviceConnectionFailed,bsl_type.DeviceInconsistentError,bsl_type.DeviceOperationError))
 class PM100D:
-    class CustomError(Exception):
-        pass
-    class DeviceOperationError(CustomError):
-        pass
-    class DeviceInconsistentError(CustomError):
-        pass
 
     def __init__(self, device_sn:str="") -> None:
         logger_opt.info(f"Initiating bsl_instrument - PM100D({device_sn})...")
@@ -23,7 +18,7 @@ class PM100D:
             logger_opt.success(f"READY - Thorlab PM100D Power Meter \"{self.device_id}\" with sensor \"{self.sensor_id}\".\n\n")
         else:
             logger_opt.error(f"FAILED to connect to Thorlab PM100D ({device_sn}) Power Meter!\n\n")
-            raise bsl_visa.DeviceConnectionFailed
+            raise bsl_type.DeviceConnectionFailed
         pass
 
     def __del__(self, *args, **kwargs) -> None:
@@ -31,7 +26,11 @@ class PM100D:
         return None
 
     def _com_connect(self, device_sn:str) -> bool:
-        self.com = bsl_visa(inst.PM100D, device_sn)
+        try:
+            self.com = bsl_visa(inst.PM100D, device_sn)
+        except Exception as e:
+            logger.error(f"{type(e)}")
+            
         if self.com.com_port is None:
             return False
         self.device_id = self.com.device_id

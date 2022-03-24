@@ -1,18 +1,13 @@
-import seabreeze
 import seabreeze.spectrometers as sb
 from .._bsl_inst_info import bsl_inst_info_list as inst
+from .._bsl_type import bsl_type
 import numpy
 from numpy.typing import NDArray
 from loguru import logger
 
     
-@logger.catch
+@logger.catch(exclude=bsl_type.DeviceConnectionFailed)
 class spec:
-    class CustomError(Exception):
-        pass
-    class DeviceConnectionFailed(CustomError):
-        pass
-    
     def __init__(self, device_sn:str=None) -> None:
         logger.info(f"Initiating bsl_instrument - SPEC({device_sn})...")
         self.inst = inst.HR4000CG
@@ -40,7 +35,7 @@ class spec:
         self.spec = None
         if len(sb.list_devices()) == 0:
             logger.opt(ansi=True).error(f"<light-blue><italic>{self.inst.MODEL} ({self.target_device_sn})</italic></light-blue> not found on communication bus.")
-            raise self.DeviceConnectionFailed
+            raise bsl_type.DeviceConnectionFailed
         
         logger.trace(f"    Devices found on bus: {str(sb.list_devices())}")
         try:
@@ -52,10 +47,10 @@ class spec:
                 self.spec = sb.Spectrometer.from_serial_number(self.target_device_sn)
             else:
                 logger.error(f"FAILED - Device[s] found on the bus, but failed to find requested device with s/n: \"{self.target_device_sn}\".")
-                raise self.DeviceConnectionFailed
+                raise bsl_type.DeviceConnectionFailed
         except:
             logger.error(f"FAILED - Device[s] found on the communication bus, but failed to make connection.")
-            raise self.DeviceConnectionFailed
+            raise bsl_type.DeviceConnectionFailed
             
         self.device_id = self.spec.serial_number
         self.device_model = self.spec.model

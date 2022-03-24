@@ -4,16 +4,12 @@ from loguru import logger
 import time
 from ..Interface._bsl_serial import bsl_serial
 from .._bsl_inst_info import bsl_inst_info_list as inst
+from .._bsl_type import bsl_type
 
 logger_opt = logger.opt(ansi=True)
 
+@logger.catch(exclude=(bsl_type.DeviceConnectionFailed,bsl_type.DeviceInconsistentError,bsl_type.DeviceOperationError))
 class M69920:
-    class CustomError(Exception):
-        pass
-    class DeviceOperationError(CustomError):
-        pass
-    class DeviceInconsistentError(CustomError):
-        pass
     class SUPPLY_MODE(enum.Enum):
         CURRENT_MODE = 1
         POWER_MODE = 0
@@ -41,7 +37,10 @@ class M69920:
         return None
 
     def _serial_connect(self) -> bool:
-        self.serial = bsl_serial(inst.M69920)
+        try:
+            self.serial = bsl_serial(inst.M69920)
+        except Exception as e:
+            logger.error(f"{type(e)}")
         if self.serial.serial_port is None:
             return False
         return self.serial.serial_port.is_open
@@ -60,7 +59,7 @@ class M69920:
             logger.success("    M69920 lamp turned ON.")
         else:
             logger.error("    Failed to turn ON - M69920 Monochromator_Lamp's Power Supply")
-            raise self.DeviceOperationError
+            raise bsl_type.DeviceOperationError
         time.sleep(0.2)
         pass
     
@@ -71,7 +70,7 @@ class M69920:
             logger.success("    M69920 lamp turned OFF.")
         else:
             logger.error("    Failed to turn OFF - M69920 Monochromator_Lamp's Power Supply")
-            raise self.DeviceOperationError
+            raise bsl_type.DeviceOperationError
         time.sleep(0.2)
         pass
 
@@ -90,7 +89,7 @@ class M69920:
         self._update_lamp_op_status()
         if self.mode != mode:
             logger.error(f"    FAILED to change M69920 Operation mode!")
-            raise self.DeviceInconsistentError
+            raise bsl_type.DeviceInconsistentError
         time.sleep(0.2)
         pass
 
@@ -101,7 +100,7 @@ class M69920:
         self._update_lamp_op_status()
         if self.frontpanel_lock != True:
             logger.error(f"    FAILED to lock M69920 front panel!")
-            raise self.DeviceInconsistentError
+            raise bsl_type.DeviceInconsistentError
         time.sleep(0.2)
         pass
 
@@ -112,7 +111,7 @@ class M69920:
         self._update_lamp_op_status()
         if self.frontpanel_lock == True:
             logger.error(f"    FAILED to unlock M69920 front panel!")
-            raise self.DeviceInconsistentError
+            raise bsl_type.DeviceInconsistentError
         time.sleep(0.2)
         pass
 
@@ -120,11 +119,11 @@ class M69920:
         # Check if current power supply mode is current mode
         if self.mode == self.SUPPLY_MODE.CURRENT_MODE:
             logger.error(f"    FAILED to set M69920 lamp current, power supply is in POWER_MODE!")
-            raise self.DeviceInconsistentError
+            raise bsl_type.DeviceInconsistentError
         # Check if the desired current is smaller than current limits
         if current >= self.current_limit:
             logger.error(f"    FAILED to set M69920 lamp current to {current:.1f} since current limit is set to {self.current_limit:.1f}!")
-            raise self.DeviceInconsistentError
+            raise bsl_type.DeviceInconsistentError
             
         msg = f'A-PRESET={current:.1f}'
         self.serial.writeline(msg)
@@ -133,7 +132,7 @@ class M69920:
         self._update_lamp_power_status()
         if self.preset_current != current:
             logger.error(f"    FAILED to set M69920 lamp current to {current:.1f} with read back current {self.preset_current:.1f}!")
-            raise self.DeviceInconsistentError
+            raise bsl_type.DeviceInconsistentError
         logger.success(f"    M69920 lamp current set to {self.preset_current:.1f}")    
         time.sleep(0.2)   
         pass
@@ -142,11 +141,11 @@ class M69920:
         # Check if current power supply mode is current mode
         if self.mode == self.SUPPLY_MODE.POWER_MODE:
             logger.error(f"    FAILED to set M69920 lamp current, power supply is in CURRENT_MODE!")
-            raise self.DeviceInconsistentError
+            raise bsl_type.DeviceInconsistentError
         # Check if the desired current is smaller than current limits
         if power >= self.power_limit:
             logger.error(f"    FAILED to set M69920 lamp power to {power:04d} since current limit is set to {self.power_limit:04d}!")
-            raise self.DeviceInconsistentError
+            raise bsl_type.DeviceInconsistentError
             
         msg = f'P-PRESET={power:04d}'
         self.serial.writeline(msg)
@@ -163,7 +162,7 @@ class M69920:
         # Check if the desired current is smaller than current limits
         if lim_I <= self.preset_current:
             logger.error(f"    FAILED to set M69920 lamp current_limit to {lim_I:.1f} since current limit is smaller than preset_current {self.preset_current:.1f}!")
-            raise self.DeviceInconsistentError
+            raise bsl_type.DeviceInconsistentError
             
         msg = f'A-LIM={lim_I:.1f}'
         self.serial.writeline(msg)
@@ -172,7 +171,7 @@ class M69920:
         self._update_lamp_power_status()
         if self.current_limit != lim_I:
             logger.error(f"    FAILED to set M69920 lamp current_limit to {lim_I:.1f} with read back current {self.current_limit:.1f}!")
-            raise self.DeviceInconsistentError
+            raise bsl_type.DeviceInconsistentError
         logger.success(f"    M69920 lamp current_limit set to {self.current_limit:.1f}")       
         time.sleep(0.2)
         pass
@@ -181,7 +180,7 @@ class M69920:
         # Check if the desired current is smaller than current limits
         if lim_P <= self.preset_power:
             logger.error(f"    FAILED to set M69920 lamp power_limit to {lim_P:04d} since it's smaller than preset power {self.preset_power:04d}!")
-            raise self.DeviceInconsistentError
+            raise bsl_type.DeviceInconsistentError
             
         msg = f'P-LIM={lim_P:04d}'
         self.serial.writeline(msg)
@@ -262,31 +261,31 @@ class M69920:
         # Check bit-7 for power ON error
         if (h_status &0b1000_0000) != 0:
             logger.error("    M69920 Lamp Power Supply Power ON ERROR!")
-            raise self.DeviceOperationError
+            raise bsl_type.DeviceOperationError
         # Check bit-6 for User Request Error
         if (h_status &0b0100_0000) != 0:
             logger.error("    M69920 Lamp Power Supply User Request ERROR!")
-            raise self.DeviceOperationError
+            raise bsl_type.DeviceOperationError
         # Check bit-5 for Command Error
         if (h_status &0b0010_0000) != 0:
             logger.error("    M69920 Lamp Power Supply Command ERROR!")
-            raise self.DeviceOperationError
+            raise bsl_type.DeviceOperationError
         # Check bit-4 for Execution Error
         if (h_status &0b0001_0000) != 0:
             logger.error("    M69920 Lamp Power Supply Execution ERROR!")
-            raise self.DeviceOperationError
+            raise bsl_type.DeviceOperationError
         # Check bit-3 for Device Dependant Error
         if (h_status &0b0000_1000) != 0:
             logger.error("    M69920 Lamp Power Supply Device Dependant ERROR!")
-            raise self.DeviceOperationError
+            raise bsl_type.DeviceOperationError
         # Check bit-2 for Query Error
         if (h_status &0b0000_0100) != 0:
             logger.error("    M69920 Lamp Power Supply Query ERROR!")
-            raise self.DeviceOperationError
+            raise bsl_type.DeviceOperationError
         # Check bit-1 for Request Control Error
         if (h_status &0b0000_0010) != 0:
             logger.error("    M69920 Lamp Power Supply Request Control ERROR!")
-            raise self.DeviceOperationError
+            raise bsl_type.DeviceOperationError
         pass
 
     def _read_current_current(self) -> float:
