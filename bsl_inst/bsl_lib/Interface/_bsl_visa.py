@@ -1,5 +1,6 @@
 from loguru import logger
 from .._bsl_inst_info import bsl_inst_info_list
+from .._bsl_type import bsl_type
 import re
 try:
     import pyvisa as pyvisa
@@ -9,11 +10,7 @@ logger_opt = logger.opt(ansi=True)
 
 @logger_opt.catch
 class bsl_visa:
-    class CustomError(Exception):
-        pass
-    class DeviceConnectionFailed(CustomError):
-        pass
-    
+
     def __init__(self, target_inst:bsl_inst_info_list, device_sn:str="") -> None:
         #Init logger_opt by inherit from parent process or using a new one if no parent logger_opt
         logger_opt.info("    Initiating bsl_visa_service...")
@@ -25,6 +22,9 @@ class bsl_visa:
         if self.com_port is None:
             logger_opt.error(f"<light-blue><italic>{self.inst.MODEL} ({self.target_device_sn})</italic></light-blue> not found on VISA/SCPI ports.")
         pass
+
+    def __del__(self) -> None:
+        self.close()
 
     def _find_device_vpid(self) -> None:
         resource_list = self.visa_resource_manager.list_resources()
@@ -65,7 +65,7 @@ class bsl_visa:
             self.device_id = self.query(self.inst.QUERY_CMD).strip()
             if self.inst.QUERY_E_RESP not in self.device_id:
                 logger_opt.error(f"    FAILED - Wrong device identifier (E_RESP) is returned!")
-                raise self.DeviceConnectionFailed
+                raise bsl_type.DeviceConnectionFailed
             self.device_id = re.search(self.inst.SN_REG, self.device_id).group(0)
             logger_opt.success(f"    {self.inst.MODEL} with DEVICE_ID: <light-blue><italic>{self.device_id}</italic></light-blue> found and connected!")
         pass
@@ -85,8 +85,9 @@ class bsl_visa:
         self.com_port.timeout = timeout
         pass
 
-    def terminate(self) -> None:
-        self.com_port.close()
+    def close(self) -> None:
+        if self.com_port is not None:
+            self.com_port.close()
         pass
 
 

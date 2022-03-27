@@ -1,5 +1,6 @@
 from loguru import logger
 import time
+import sys
 
 from ..Interface._bsl_visa import bsl_visa
 from .._bsl_inst_info import bsl_inst_info_list as inst
@@ -7,17 +8,16 @@ from .._bsl_type import bsl_type
 
 logger_opt = logger.opt(ansi=True)
 
-@logger_opt.catch(exclude=(bsl_type.DeviceConnectionFailed,bsl_type.DeviceInconsistentError,bsl_type.DeviceOperationError))
+@logger.catch(exclude=(bsl_type.DeviceConnectionFailed,bsl_type.DeviceInconsistentError,bsl_type.DeviceOperationError))
 class PM100D:
-
     def __init__(self, device_sn:str="") -> None:
         logger_opt.info(f"Initiating bsl_instrument - PM100D({device_sn})...")
-        
+        self.device_id=""
         if self._com_connect(device_sn):
             self.run_update_power_meter()
-            logger_opt.success(f"READY - Thorlab PM100D Power Meter \"{self.device_id}\" with sensor \"{self.sensor_id}\".\n\n")
+            logger_opt.success(f"READY - Thorlab PM100D Power Meter \"{self.device_id}\" with sensor \"{self.get_sensor_id()}\".\n\n\n")
         else:
-            logger_opt.error(f"FAILED to connect to Thorlab PM100D ({device_sn}) Power Meter!\n\n")
+            logger_opt.error(f"FAILED to connect to Thorlab PM100D ({device_sn}) Power Meter!\n\n\n")
             raise bsl_type.DeviceConnectionFailed
         pass
 
@@ -27,22 +27,22 @@ class PM100D:
 
     def _com_connect(self, device_sn:str) -> bool:
         try:
-            self.com = bsl_visa(inst.PM100D, device_sn)
+            self._com = bsl_visa(inst.PM100D, device_sn)
         except Exception as e:
             logger.error(f"{type(e)}")
+            sys.exit(-1)
             
-        if self.com.com_port is None:
+        if self._com.com_port is None:
             return False
-        self.device_id = self.com.device_id
+        self.device_id = self._com.device_id
         return True
 
-    def close(self) -> None:
-        self.com.terminate()
-        del self.com
-        logger.info(f"CLOSED - Thorlab PM100D Power Meter \"{self.device_id}\"\n\n")
-        pass
-
     def run_update_power_meter(self) -> None:
+        """
+        - Performs an update to all relevent power meter parameters.
+
+        - Enable info level loggging to see each query results.
+        """
         self.get_preset_wavelength()
         self.get_attenuation_dB()
         self.get_average_count()
@@ -59,138 +59,313 @@ class PM100D:
         pass
 
     def run_zero(self) -> None:
-        resp = self.com.write("SENS:CORR:COLL:ZERO:INIT")
+        """
+        - Zero the power meter.
+        """
+        resp = self._com.write("SENS:CORR:COLL:ZERO:INIT")
         time.sleep(0.2)
-        logger_opt.info("    PM100D({self.device_id}) - Power Meter Zeroed")
+        self._raise_info("Power Meter Zeroed.")
         return None
 
     def get_preset_wavelength(self) -> float:
+        """
+        - Get preset wavelength of interest for power measurement 
+        from the power meter.
+
+        Returns
+        --------
+        wavelength : `float`
+            Preset wavelength of interest for power measurement.
+        """
         try_count = 0
         while True:
             try:
-                self.wavelength = float(self.com.query("SENS:CORR:WAV?"))
-                logger_opt.debug( f"    PM100D({self.device_id}) - read wavelength at {repr(self.wavelength)}nm")
+                wavelength = float(self._com.query("SENS:CORR:WAV?"))
+                self._raise_info( f"Current preset wavelenght: {repr(wavelength)}nm")
                 break
             except:
                 if try_count > 9:
-                    logger_opt.error( "    PM100D({self.device_id}) - FAILED to get wavelength." )
-                    break
+                    self._raise_error("FAILED to acquire wavelength.")
                 else:
                     time.sleep(0.1)  #take a rest..
                     try_count = try_count + 1
-                    logger_opt.debug( "    PM100D({self.device_id}) - trying to get the wavelength again.." )
-        return self.wavelength
+                    self._raise_warning("timeout - Trying to get the wavelength again..")
+        return wavelength
     
     def set_preset_wavelength(self, wl:float) -> float:
+        """
+        - Set preset wavelength of interest for power measurement 
+        from the power meter.
+
+        Parameters
+        ----------
+        wl : `float`
+            Wavelength of interest for power measurement.
+
+        Returns
+        --------
+        wavelength : `float`
+            Preset wavelength of interest for power measurement readback
+            from the power meter.
+        """
         try_count = 0
         while True:
             try:
-                self.com.write("SENS:CORR:WAV %f" % wl)
+                self._com.write("SENS:CORR:WAV %f" % wl)
                 time.sleep(0.005) # Sleep for 5 ms before rereading the wl.
-                logger_opt.info(f"    PM100D({self.device_id}) - wavelength set to {wl:.1f}nm")
+                self._raise_info(f"Wavelength set to {wl:.1f}nm")
                 break
             except:
                 if try_count > 9:
-                    logger_opt.error( "    PM100D({self.device_id}) - Failed to set wavelength." )
-                    time.sleep(0.005) # Sleep for 5 ms before rereading the wl.
-                    break
+                    self._raise_error( "Failed to set wavelength." )
                 else:
                     time.sleep(0.1)  #take a rest..
                     try_count = try_count + 1
-                    logger_opt.debug( "    PM100D({self.device_id}) - trying to set wavelength again.." )
+                    self._raise_warning( "Timeout - trying to set wavelength again.." )
 
         return self.get_preset_wavelength()
     
     def get_attenuation_dB(self) -> float:
+        """
+        - Get current dB attenuation from the power meter.
+
+        Returns
+        --------
+        att_dB : `float`
+            Current dB attenuation of the power meter.
+        """
         # in dB (range for 60db to -60db) gain or attenuation, default 0 dB
-        self.attenuation_dB = float( self.com.query("SENS:CORR:LOSS:INP:MAGN?") )
-        logger_opt.debug(f"    PM100D({self.device_id}) - attenuation at {self.attenuation_dB}dB")
-        return self.attenuation_dB
+        attenuation_dB = float( self._com.query("SENS:CORR:LOSS:INP:MAGN?") )
+        self._raise_info(f"Current attenuation at {attenuation_dB}dB.")
+        return attenuation_dB
 
     def get_average_count(self) -> int:
-        """each measurement is approximately 3 ms.
-        returns the number of measurements
-        the result is averaged over"""
-        self.average_count = int( self.com.query("SENS:AVER:COUNt?") )
-        logger_opt.debug( f"    PM100D({self.device_id}) - average count: {self.average_count}")
-        return self.average_count
+        """
+        - Get measurments count for each power measurement. 
+
+        - Each measurement is approximately 3 ms.
+
+        Returns
+        --------
+        count : `int`
+            Number of measurements made for each power measurement,
+            the result is the average of all measurements.
+        """
+        average_count = int( self._com.query("SENS:AVER:COUNt?") )
+        self._raise_info( f"Current average count: {average_count}.")
+        return average_count
     
     def set_average_count(self, cnt:int) -> int:
-        """each measurement is approximately 3 ms.
-        sets the number of measurements
-        the result is averaged over"""
-        self.com.write("SENS:AVER:COUNT %i" % cnt)
-        logger_opt.debug(f"    PM100D({self.device_id}) - average count is set to {cnt}")
+        """
+        - Set measurments count for each power measurement,
+        the final power measurement is the average of all 
+        measured attempts. 
+
+        - Each measurement is approximately 3 ms.
+
+        parameter
+        --------
+        cnt : `int`
+            Number of measurements made for each power measurement,
+            the result is the average of all measurements.
+        """
+        self._com.write("SENS:AVER:COUNT %i" % cnt)
+        self._raise_info(f"Average count is set to {cnt}.")
         return self.get_average_count()
             
     def get_measured_power(self) -> float:
-        self.power = float(self.com.query("MEAS:POW?"))
-        logger_opt.debug(f"    PM100D({self.device_id}) - Power measured: {self.power*1000:.2f}mW")
-        return self.power
-        
-    def get_power_measuring_range(self) -> int:
-        #un tested
-        self.power_range = float(self.com.query("SENS:POW:RANG:UPP?")) # CHECK RANGE
-        logger_opt.debug(f"    PM100D({self.device_id}) - Power measuring range: {self.power_range*1000:.1f}mW")
-        return self.power_range
+        """
+        - Get one power measurement form the power meter 
+        with amount of `average_count` individual measurements.
+        The final result is the average of all of theindividual 
+        measurements.
 
+        - Each measurement is approximately `3 * average_count`ms.
+
+        Returns
+        --------
+        power : `float`
+            The average of all of theindividual measurements.
+        """
+        power = float(self._com.query("MEAS:POW?"))
+        self._raise_info(f"Current Power measured: {power*1000:.2f}mW.")
+        return power
+        
+    #un tested
+    def get_power_measuring_range(self) -> int:
+        """
+        - ???
+
+        Returns
+        --------
+        range : `int`
+            ???
+        """
+        power_range = float(self._com.query("SENS:POW:RANG:UPP?")) # CHECK RANGE
+        self._raise_info(f"Power measuring range: {power_range*1000:.1f}mW.")
+        return power_range
+
+    #un tested
     def set_power_range(self, range:float) -> None:
-        #un tested
-        self.com.write("SENS:POW:RANG:UPP {}".format(range))
-        logger_opt.debug(f"    PM100D({self.device_id}) - Power_measuring_range set to {range}mW")
+        """
+        - ???
+
+        Parameters
+        --------
+        range : `float`
+            ???
+        """
+        self._com.write("SENS:POW:RANG:UPP {}".format(range))
+        self._raise_info(f"Set Power_measuring_range to {range}mW.")
         pass
 
     def get_auto_range_status(self) -> bool:
-        resp = self.com.query("SENS:POW:RANG:AUTO?")
-        self.auto_range = bool(int(resp))
-        logger_opt.debug(f"    PM100D({self.device_id}) - Get_auto_range status result: {self.auto_range}")
-        return self.auto_range
+        """
+        - Get the status of auto-ranging feature of the power meter.
+
+        Returns
+        --------
+        auto-range : `bool`
+            The status of auto-ranging feature of the power meter.
+        """
+        resp = self._com.query("SENS:POW:RANG:AUTO?")
+        auto_range = bool(int(resp))
+        self._raise_info(f"Current Auto_range status: {repr(self.auto_range)}.")
+        return auto_range
     
     def set_auto_range(self, auto:bool = True) -> None:
-        logger_opt.debug( f"    PM100D({self.device_id}) - Set_auto_range: {auto}")
+        """
+        - Set the status of auto-ranging feature of the power meter.
+
+        Parameters
+        --------
+        auto : `bool`
+            The requested status of auto-ranging feature of the power meter.
+        """
+        self._raise_info( f"Set Auto_range to: {repr(auto)}")
         if auto:
-            self.com.write("SENS:POW:RANG:AUTO ON") # turn on auto range
+            self._com.write("SENS:POW:RANG:AUTO ON") # turn on auto range
         else:
-            self.com.write("SENS:POW:RANG:AUTO OFF") # turn off auto range
+            self._com.write("SENS:POW:RANG:AUTO OFF") # turn off auto range
     
     def get_measured_frequency(self) -> float:
-        self.frequency = float(self.com.query("MEAS:FREQ?"))
-        logger_opt.debug(f"    PM100D({self.device_id}) - Frequency readout: {self.frequency:.1f}Hz")
-        return self.frequency
+        """
+        - Get the measured frequency from the power meter.
+
+        Returns
+        --------
+        freq : `float`
+            Measured frequency `Hz` from the power meter.
+        """
+        frequency = float(self._com.query("MEAS:FREQ?"))
+        self._raise_info(f"Measured frequency: {frequency:.1f}Hz.")
+        return frequency
 
     def get_zero_magnitude(self) -> float:
-        resp = self.com.query("SENS:CORR:COLL:ZERO:MAGN?")
-        self.zero_magnitude = float(resp)
-        logger_opt.debug(f"    PM100D({self.device_id}) - zero_magnitude: {self.zero_magnitude*1000:.2f}mW")
-        return self.zero_magnitude
+        """
+        - Get the zero_calibration magnitude (`Watts`) from the power meter.
+
+        Returns
+        --------
+        zero_mag : `float`
+            Current zero_calibration magnitude in `Watts`.
+        """
+        resp = self._com.query("SENS:CORR:COLL:ZERO:MAGN?")
+        zero_magnitude = float(resp)
+        self._raise_info(f"Current Zero_magnitude: {zero_magnitude*1000:.2f}mW.")
+        return zero_magnitude
         
     def get_zero_state(self) -> bool: 
-        resp = self.com.query("SENS:CORR:COLL:ZERO:STAT?")
-        self.zero_state = bool(int(resp))
-        logger_opt.debug(f"    PM100D({self.device_id}) - zero_state: {self.zero_state}")
-        return self.zero_state
+        """
+        - Get the zero_calibration state from the power meter.
+
+        Returns
+        --------
+        zero_state : `bool`
+            Current zero_calibration state.
+        """
+        resp = self._com.query("SENS:CORR:COLL:ZERO:STAT?")
+        zero_state = bool(int(resp))
+        self._raise_info(f"Zero_state: {repr(zero_state)}.")
+        return zero_state
 
     def get_photodiode_response(self) -> float:
-        resp = self.com.query("SENS:CORR:POW:PDIOde:RESP?")
+        """
+        - Get the photodiode_response magnitude (`A/W`) from the power meter.
+
+        Returns
+        --------
+        photo_resp : `float`
+            Current photodiode_response magnitude in `A/W`.
+        """
+        resp = self._com.query("SENS:CORR:POW:PDIOde:RESP?")
         #resp = self.ask("SENS:CORR:VOLT:RANG?")
         #resp = self.ask("SENS:CURR:RANG?")
-        self.photodiode_response = float(resp) # A/W
-        logger_opt.debug(f"    PM100D({self.device_id}) - Photodiode_response: {self.photodiode_response*1000:.1f}mA/W")
-        return self.photodiode_response 
+        photodiode_response = float(resp) # A/W
+        self._raise_info(f"Current Photodiode_response: {photodiode_response*1000:.1f}mA/W.")
+        return photodiode_response 
     
     def get_measured_current(self) -> float:
-        resp = self.com.query("MEAS:CURR?")
-        self.current = float(resp)
-        logger_opt.debug(f"    PM100D({self.device_id}) - Measured current: {self.current*1000:.1f}mA")
-        return self.current
+        """
+        - Get the measured_current magnitude (`A`) from the power meter.
+
+        Returns
+        --------
+        current : `float`
+            Current measured_current magnitude in `Amps`.
+        """
+        resp = self._com.query("MEAS:CURR?")
+        current = float(resp)
+        self._raise_info(f"Measured current: {self.current*1000:.1f}mA.")
+        return current
     
     def get_current_range(self) -> float:
-        resp = self.com.query("SENS:CURR:RANG:UPP?")
-        self.current_range = float(resp)
-        logger_opt.debug(f"    PM100D({self.device_id}) - Preset current_range: {self.current_range*1000:.1f}mA")
-        return self.current_range
+        """
+        - Get the current_range upper bound (`A`) from the power meter.
+
+        Returns
+        --------
+        max_current : `float`
+            Current max current_range magnitude in `Amps`.
+        """
+        resp = self._com.query("SENS:CURR:RANG:UPP?")
+        current_range = float(resp)
+        self._raise_info(f"Preset current_range: {current_range*1000:.1f}mA.")
+        return current_range
 
     def get_sensor_id(self) -> str:
-        self.sensor_id = self.com.query("SYST:SENS:IDN?").split(",")[0]
-        logger_opt.debug(f"    PM100D({self.device_id}) - Current connected sensor: {self.sensor_id}")
-        return self.sensor_id
+        """
+        - Get the sensor_id from the power meter.
+
+        Returns
+        --------
+        sensor_id : `str`
+            Sensor ID of the currently connected sensor.
+        """
+        sensor_id = self._com.query("SYST:SENS:IDN?").split(",")[0]
+        self._raise_info(f"Current connected sensor: {sensor_id}.")
+        return sensor_id
+
+
+    def _raise_error(self, msg:str=""):
+        logger_opt.error(f"ERROR - {self.inst.MODEL} ({self.device_id}) - {msg}")
+        raise bsl_type.DeviceOperationError
+
+    def _raise_warning(self, msg:str=""):
+        logger_opt.warning(f"WARNING - {self.inst.MODEL} ({self.device_id}) - {msg}")
+        return
+
+    def _raise_info(self, msg:str=""):
+        logger_opt.info(f"    {self.inst.MODEL} ({self.device_id}) - {msg}")
+        return
+
+    def _raise_debug(self, msg:str=""):
+        logger_opt.debug(f"    {self.inst.MODEL} ({self.device_id}) - {msg}")
+        return
+
+    def close(self) -> None:
+        if self._com is not None:
+            self._com.close()
+            del self._com
+        logger.info(f"CLOSED - Thorlab PM100D Power Meter \"{self.device_id}\"\n\n\n")
+        pass

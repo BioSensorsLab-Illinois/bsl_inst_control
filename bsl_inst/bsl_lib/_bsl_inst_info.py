@@ -64,3 +64,18 @@ class bsl_inst_info_list:
         SN_REG="(?<=,)P[0-9]+(?=,)"
     )
 
+    RS_7_1 = bsl_inst_info_class(
+        MANUFACTURE="Gamma Scientific",
+        MODEL="RS_7_1",
+        TYPE="Tunable Light Source - LED",
+        BAUDRATE=460800,
+        SERIAL_NAME="FT232R USB UART",
+        INTERFACE="Serial",
+        USB_PID="0x0403",
+        USB_VID="0x6001",
+        QUERY_CMD="USN\r\n",
+        QUERY_E_RESP="HX0650",
+        QUERY_SN_CMD="USN\r\n",
+        SN_REG=".*"
+    )
+

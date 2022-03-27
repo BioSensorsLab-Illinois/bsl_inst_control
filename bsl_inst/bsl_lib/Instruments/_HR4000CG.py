@@ -5,17 +5,19 @@ import numpy
 from numpy.typing import NDArray
 from loguru import logger
 
+logger_opt = logger.opt(ansi=True)
     
-@logger.catch(exclude=bsl_type.DeviceConnectionFailed)
-class spec:
+@logger.catch(exclude=(bsl_type.DeviceConnectionFailed,bsl_type.DeviceInconsistentError,bsl_type.DeviceOperationError))
+class HR4000CG:
     def __init__(self, device_sn:str=None) -> None:
         logger.info(f"Initiating bsl_instrument - SPEC({device_sn})...")
         self.inst = inst.HR4000CG
         self.target_device_sn = device_sn
         self.device_id=""
         self.device_model=""
-
+        
         self.__connect_spectrometer()
+            
         if self.spec is not None:
             logger.success(f"READY - OceanOptics PM100D Spectrometer \"{self.device_id}\"\n\n")
         return None
@@ -34,7 +36,7 @@ class spec:
         """
         self.spec = None
         if len(sb.list_devices()) == 0:
-            logger.opt(ansi=True).error(f"<light-blue><italic>{self.inst.MODEL} ({self.target_device_sn})</italic></light-blue> not found on communication bus.")
+            logger.opt(ansi=True).error(f"<light-blue><italic>{self.inst.MODEL} ({self.target_device_sn})</italic></light-blue> not found on communication bus.\n\n\n")
             raise bsl_type.DeviceConnectionFailed
         
         logger.trace(f"    Devices found on bus: {str(sb.list_devices())}")
@@ -46,10 +48,10 @@ class spec:
                 # with sb.Spectrometer.from_serial_number(self.target_device_sn) as spec_device:
                 self.spec = sb.Spectrometer.from_serial_number(self.target_device_sn)
             else:
-                logger.error(f"FAILED - Device[s] found on the bus, but failed to find requested device with s/n: \"{self.target_device_sn}\".")
+                logger.error(f"FAILED - Device[s] found on the bus, but failed to find requested device with s/n: \"{self.target_device_sn}\".\n\n\n")
                 raise bsl_type.DeviceConnectionFailed
         except:
-            logger.error(f"FAILED - Device[s] found on the communication bus, but failed to make connection.")
+            logger.error(f"FAILED - Device[s] found on the communication bus, but failed to make connection.\n\n\n")
             raise bsl_type.DeviceConnectionFailed
             
         self.device_id = self.spec.serial_number
@@ -133,7 +135,7 @@ class spec:
         return None
 
     @property
-    def get_integration_time_limit_us(self) -> tuple[int,int]:
+    def integration_time_limit_us(self) -> tuple[int,int]:
         """
         - return the hardcoded minimum and maximum integration time
 
@@ -145,7 +147,7 @@ class spec:
         return self.spec.integration_time_micros_limits
     
     @property
-    def get_device_max_intensity(self) -> float:
+    def device_max_intensity(self) -> float:
         """
         - return the maximum intensity of the spectrometer
 
@@ -158,7 +160,7 @@ class spec:
         return self.spec.max_intensity
 
     @property
-    def get_device_pixel_count(self) -> int:
+    def device_pixel_count(self) -> int:
         """the spectrometer's number of pixels"""
         return self.spec.pixels
 
@@ -166,6 +168,6 @@ class spec:
         if self.spec is not None:
             self.spec.close()
             del self.spec
-        logger.info(f"CLOSED - OceanOptics PM100D Spectrometer \"{self.device_id}\"\n\n")
+        logger.info(f"CLOSED - OceanOptics PM100D Spectrometer \"{self.device_id}\"\n\n\n")
         return None
 

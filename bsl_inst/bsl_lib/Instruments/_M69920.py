@@ -1,5 +1,4 @@
 import enum
-import loguru
 from loguru import logger
 import time
 from ..Interface._bsl_serial import bsl_serial
@@ -15,7 +14,12 @@ class M69920:
         POWER_MODE = 0
 
 
-    def __init__(self, logger_:loguru.logger = loguru.logger, *, mode=0, lim_current=0, lim_power=0) -> None:
+    def __init__(self, device_sn="", *, mode=0, lim_current=0, lim_power=0) -> None:
+        self.target_device_sn = device_sn
+        self.serial_port = None
+        self.device_id = ""
+        
+        logger.info(f"Initiating bsl_instrument - M69920({device_sn})...")
         if self._serial_connect():
             logger.info("M69920 Monochromator lamp's power supply connected!")
             self._update_lamp_op_status()
@@ -28,8 +32,8 @@ class M69920:
             self.set_lamp_power(0)
             logger.success("READY - M69920 Monochromator lamp's power supply.")
         else:
-            logger.error("FAILED to connect to M69920 Monochromator lamp's power supply!")
-            raise bsl_serial.DeviceConnectionFailed
+            logger.error(f"FAILED to connect to M69920 Monochromator lamp's power supply!\n\n\n")
+            raise bsl_type.DeviceConnectionFailed
         pass
 
     def __del__(self, *args, **kwargs) -> None:
@@ -38,19 +42,13 @@ class M69920:
 
     def _serial_connect(self) -> bool:
         try:
-            self.serial = bsl_serial(inst.M69920)
+            self.serial = bsl_serial(inst.M69920, self.target_device_sn)
         except Exception as e:
             logger.error(f"{type(e)}")
+            
         if self.serial.serial_port is None:
             return False
         return self.serial.serial_port.is_open
-    
-    def close(self) -> None:
-        self.serial.terminate()
-        del self.serial
-        self.shut_down()
-        logger.info(f"CLOSED - M69920 Monochromator lamp's power supply \"{self.device_id}\"\n\n")
-        pass
 
     def lamp_ON(self) -> None:
         self.serial.writeline('START')
@@ -371,9 +369,17 @@ class M69920:
     def _get_lamp_id(self):
         pass
     
-    def shut_down(self) -> None:
+    def lamp_shut_down(self) -> None:
         self.lamp_OFF()
         self.set_lamp_current(0.0)
         self.set_lamp_power(0.0)
         self.unlock_front_panel()
+        pass
+
+    def close(self) -> None:
+        if self.serial_port is not None:
+            self.lamp_shut_down()
+            self.serial.close()
+            del self.serial
+        logger.info(f"CLOSED - M69920 Monochromator lamp's power supply \"{self.device_id}\"\n\n\n")
         pass
