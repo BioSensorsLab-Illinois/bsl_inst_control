@@ -100,7 +100,7 @@ class HR4000CG:
         """
         return self.spec.intensities(correct_dark_counts, correct_nonlinearity)
 
-    def get_spectrum(self) -> NDArray[numpy.float_]:
+    def get_spectrum(self, correct_dark_counts:bool=False, correct_nonlinearity:bool=False) -> NDArray[numpy.float_]:
         """
         - returns wavelengths and intensities as single array
 
@@ -120,7 +120,7 @@ class HR4000CG:
         spectrum : `numpy.ndarray`
             combined array of wavelengths and measured intensities
         """
-        return self.spec.spectrum()
+        return self.spec.spectrum(correct_dark_counts, correct_nonlinearity)
 
     def set_integration_time_micros(self, exp_us:int) -> None:
         """
@@ -165,9 +165,12 @@ class HR4000CG:
         return self.spec.pixels
 
     def close(self) -> None:
-        if self.spec is not None:
-            self.spec.close()
-            del self.spec
-        logger.info(f"CLOSED - OceanOptics PM100D Spectrometer \"{self.device_id}\"\n\n\n")
+        try:
+            if self.spec is not None:
+                self.spec.close()
+                del self.spec
+        except:
+            pass
+        logger.success(f"CLOSED - OceanOptics PM100D Spectrometer \"{self.device_id}\"\n\n\n")
         return None
 

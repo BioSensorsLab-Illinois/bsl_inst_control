@@ -35,7 +35,7 @@ def M69920(device_sn:str="") -> _M69920.M69920:
 def HR4000CG(device_sn:str="") -> _HR4000CG.HR4000CG:
     if not __is_logger_ready:
         init_logger()
-    return _HR4000CG.spec(device_sn)
+    return _HR4000CG.HR4000CG(device_sn)
 
 @staticmethod
 def RS_7_1(device_sn:str="") -> _RS_7_1.RS_7_1:

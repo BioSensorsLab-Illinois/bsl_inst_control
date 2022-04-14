@@ -84,7 +84,7 @@ class bsl_serial:
             for baudrate in baudrates:
                 logger_opt.debug(f"    Inquiring serial port <light-blue><italic>{temp_port}</italic></light-blue> with Baudrate={baudrate}")
                 # Try to open the serial port
-                with serial.Serial(temp_port, baudrate, timeout=0.5) as device:
+                with serial.Serial(temp_port, baudrate, timeout=0.1) as device:
                     logger_opt.trace(f"        Connected to <light-blue><italic>{device.name}</italic></light-blue> on port <light-blue><italic>{temp_port}</italic></light-blue>")
                     # Query the device with QUERY_CMD
                     device.reset_input_buffer()

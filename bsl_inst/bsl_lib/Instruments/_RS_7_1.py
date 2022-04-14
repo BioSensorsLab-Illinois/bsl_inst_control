@@ -21,15 +21,17 @@ class RS_7_1:
     class _STM_MODE(enum.Enum):
         ASCII_COMMA = 0; ASCII_COLUMN = 1; PACKED_BINARY = 2
     class POWER_UNIT(enum.Enum):
+        UNITS=['uW/cm^2/sr','uW/cm^2','nits','lux','%']
         RADIANCE = 0; IRRADIANCE = 1; LUMINANCE = 2; ILLUMINANCE=3; PERCENTAGE=4
     class OBSERVER_ANGLE(enum.Enum):
         DEG_2 = 2; DEG_10 = 10
     class LED_CHANNELS(enum.Enum):
         LEN_CHANS = list([3,4,5,6,7,8,11,13,14,16,19,20,21,22,23,24,26,27,28,29,30,31,33,34,36,37,38,39,41,42,43,45,46,47,49,51,52,53,54,55,57,59,60,61,62,63])
+        LEN_CHANS_NO_WHITE = list([3,4,5,6,7,8,11,13,14,16,19,20,21,22,23,24,26,27,28,29,30,33,34,36,37,39,41,42,43,45,46,47,49,51,52,53,54,55,57,59,60,61,62])
         FWHM = list([0.0, 0.0, 13.62, 27.44, 13.62, 16.41, 30.97, 14.81, 0.0, 0.0, 22.25, 0.0, 18.07, 24.06, 0.0, 14.81, 0.0, 0.0, 35.15, 106.8, 106.8, 32.22, 25.21, 18.53, 0.0, 20.28, 79.39, 79.39, 24.06, 13.62, 0.0, 0.0, 40.32, 17.83, 0.0, 21.05, 16.15, 0.0, 33.17, 0.0, 19.7, 24.06, 21.86, 0.0, 24.06, 31.81, 16.94, 0.0, 21.27, 0.0, 20.94, 29.85, 52.46, 21.36, 21.36, 0.0, 18.53, 0.0, 15.1, 21.86, 27.68, 31.81, 0.0, 0.0])
         WAVELENGTH = list([0.0, 0.0, 590.35, 498.75, 590.35, 399.0, 521.85, 627.11, 0.0, 0.0, 769.71, 0.0, 657.0, 712.89, 0.0, 627.11, 0.0, 0.0, 845.9, 571.15, 571.15, 901.51, 746.37, 632.75, 0.0, 452.86, 610.19, 610.19, 712.89, 590.35, 5990.9, 0.0, 936.91, 426.01, 0.0, 688.43, 616.27, 2937.8, 531.37, 0.0, 445.77, 729.16, 495.49, 0.0, 729.16, 525.64, 667.09, 0.0, 407.85, 0.0, 753.59, 474.73, 959.3, 700.74, 700.74, 0.0, 632.75, 0.0, 426.8, 495.49, 802.68, 525.64, 2747.6, 0.0])
     
-    def __init__(self, device_sn="") -> None:
+    def __init__(self, device_sn="", pwr_on_test:bool = True) -> None:
         self._target_device_sn = device_sn
         self.inst = inst.RS_7_1
         self.device_id = ""
@@ -69,11 +71,13 @@ class RS_7_1:
         return None
 
     def _system_init(self) -> None:
-        # self._system_restart()
-        # self._run_integrity_check()
-        # self._run_basic_assurance_test()
+        self._system_restart()
+        self._run_integrity_check()
+        self._run_basic_assurance_test()
         self._set_wavelength_range(360,1100)
+        self.set_standard_observer_angle(self.OBSERVER_ANGLE.DEG_2)
         self._set_spectrum_transfer_format(self._STM_MODE.ASCII_COMMA)
+        self.set_iris_position(0)
         return None
 
     def _run_integrity_check(self) -> None:
@@ -173,7 +177,7 @@ class RS_7_1:
             self._set_UNI_unit(self._SYSTEM_UNIT.PHOTOMETRIC.value)
             self._set_irr_distance(irr_distance_mm)
 
-        self._raise_info(f"Power Unit set to {unit} with Irradiance distance = {irr_distance_mm}")
+        self._raise_debug(f"Power Unit set to {unit} with imaging distance = {irr_distance_mm}mm.")
         return None
 
     def _set_optical_feedback(self, FBK:bool=True) -> None:
@@ -283,10 +287,9 @@ class RS_7_1:
         logger.info(f"    {self.inst.MODEL} ({self.device_id}) - {msg}")
         return
 
-
-
-
-
+    def _raise_debug(self, msg:str=""):
+        logger.debug(f"    {self.inst.MODEL} ({self.device_id}) - {msg}")
+        return
 
 
     #checked
@@ -321,7 +324,7 @@ class RS_7_1:
         fwhm = self.LED_CHANNELS.FWHM.value
         idx = (np.abs(lst - wavelength)).argmin()
         list_idx = list(np.where(lst==lst[idx])[0]+1)
-        self._raise_info(f"Found LED ({repr(list_idx)}) with wavelength {lst[idx]}nm, FWHM {fwhm[idx]}nm from requested wavelength {wavelength}nm.")
+        self._raise_debug(f"Found LED ({repr(list_idx)}) with wavelength {lst[idx]}nm, FWHM {fwhm[idx]}nm from requested wavelength {wavelength}nm.")
         return (list_idx, lst[idx], fwhm[idx])
 
     #checked
@@ -359,7 +362,7 @@ class RS_7_1:
         """
         msg = f"SOB{angle.value}"
         self._com_cmd(msg)
-        self._raise_info(f"Standard Observer Angle set to {angle.value} degrees")
+        self._raise_debug(f"Standard Observer Angle set to {angle.value} degrees")
         return None
 
 
@@ -389,7 +392,7 @@ class RS_7_1:
         self._set_power_unit(unit, irr_distance_mm)
         msg = f"SCP 0,{power}"
         self._com_cmd(msg)
-        self._raise_info(f"All LED channels' power set to {power}.")
+        self._raise_info(f"All LED channels' power set to {power}{self.POWER_UNIT.UNITS.value[unit.value]}.")
         return None
 
     #checked
@@ -439,7 +442,7 @@ class RS_7_1:
                 self._raise_error(f"Provided LED channel {chan} is not installed!")
         
         str_chans = [str(x) for x in chans]
-        str_powers = [str(x) for x in powers]
+        str_powers = [str(f'{x:.4f}') for x in powers]
         combined = str_chans+str_powers
         combined[0::2] = str_chans
         combined[1::2] = str_powers
@@ -448,33 +451,32 @@ class RS_7_1:
         self._raise_info("LED Channel[s] power set.")
         self._com_cmd(msg)
 
-    #TO BE CHECK
-    def set_power_led_random(self) -> list[float]:
+    #checked
+    def set_power_led_random(self, power_percentage:int=5) -> list[float]:
         """
         - Set output spectrum to a random spectrum.
 
         Uses
         ----------
         >>> set_spectrum_random()
-        >>> set_power_fitted_spectrum(power = 30)
+        >>> set_power_output(power = 30)
 
         Returns
         --------
         Output_spectrum : `list[float]`
             Actual output spectrum with a.u. from 360nm to 1100nm with step size of 1nm.
         """
-        spectrum = np.random.random([len(self.LED_CHANNELS.LEN_CHANS.value)])*80
-        self.set_power_chans(self.LED_CHANNELS.LEN_CHANS.value,spectrum)
+        spectrum = np.random.random([len(self.LED_CHANNELS.LEN_CHANS_NO_WHITE.value)])*power_percentage
+        self.set_power_chans(self.LED_CHANNELS.LEN_CHANS_NO_WHITE.value,spectrum)
         self._raise_info("Output spectrum set to a randomly generated spectrum.")
-        return self.get_spectrum_output()
+        return None
 
-    #TO BE CHECK
-    def set_power_fitted_spectrum(
-        self, power:float, unit:POWER_UNIT=POWER_UNIT.PERCENTAGE, 
+    #checked
+    def set_power_output(
+        self, power:float, unit:POWER_UNIT=POWER_UNIT.RADIANCE, 
         irr_distance_mm:int=0, match_chrom:bool=False) -> None:
         """
-        - Set the output power of the overall system to specified unit and power
-        with provided spectrum fitting.
+        - Set the output power of the overall system to specified unit and power.
 
         - WARNINGL: Unknown chromaticity/spectrum accuracy! Always use in 
         conjunction with `get_power_output()` and `get_spectrum_output()` functions 
@@ -485,11 +487,10 @@ class RS_7_1:
         - WARNING: For chromaticity/color based spectrum setting, follow instructions 
         in `set_spectrum_rgb()`, `set_spectrum_CIExy()`, and `set_spectrum_pantone()` 
         to ensure chromaticity precision!
-        
-        - if set `match_chrom = True`, the output intensity may be locked to the 
-        intensity gives the closest chromaticity match if other intensity give
-        large error. ALWAYS use `get_power_output()` to confirm actual output
-        power after called with `match_chrom = True`!
+
+        - WARNING: Using `match_chrom=True` may results in faliure to change the power 
+        level since the chromaticity correction function may lower the output level 
+        for unknown reason, NO warning NOR error will be raised if this happened!
 
         Parameters
         ----------
@@ -497,7 +498,7 @@ class RS_7_1:
             Power of all channel in percentage.
 
         unit : `RS_7_1.POWER_UNIT`
-            (default to Percentage)
+            (default to Radiance)
             Select the unit of the power from radiance, irradiance, luminance,
             illuminance, and percentage.
 
@@ -509,28 +510,59 @@ class RS_7_1:
 
         match_chrom : `bool`
             (default to False)
-            Note that changing the output level using match_chrom == False can 
-            result in a  chromaticity shift in the final output spectrum OSP, as 
+            Note that changing the output level using `match_chrom = False` can 
+            result in a chromaticity shift in the final output spectrum OSP, as 
             OUT merely adjusts all channels’ power level to match the requested 
-            setting without regard to any wavelength shift caused by the change in 
-            drive current. To maintain the current chromaticity, use default instead.
+            setting without regard to any wavelength shift caused by the change 
+            in drive current.
         """
         self._set_power_unit(unit, irr_distance_mm)
+        chrom = self.get_chromaticity_output()
         if match_chrom:
-            msg = f'OUTC{power:.3f}'
+            chrom = self.get_chromaticity_output()
+            msg = f'OUT{power:.3f}'
+            self._com_cmd(msg)
+            self._com_cmd(f"CCS{chrom[0]:.6f},{chrom[1]:.6f}")
         else:
             msg = f'OUT{power:.3f}'
-        self._com_cmd(msg)
-        self._raise_info(f"System's output spectrum power set to: {power}, with unit {unit}, with irradiance distance: {irr_distance_mm}, with chroma_correction: {match_chrom}")
+            self._com_cmd(msg)
+        self._raise_info(f"Output power set to: {power}{self.POWER_UNIT.UNITS.value[unit.value]}, irradiance distance: {irr_distance_mm}, chroma_correction: {match_chrom}.")
         return None
 
+    #checked
+    def set_power_fixed_spectrum(
+        self, power:float, unit:POWER_UNIT=POWER_UNIT.RADIANCE, 
+        irr_distance_mm:int=0) -> None:
+        """
+        - Set the output power of the overall system to specified unit and power
+        while maintaining the current output spectrum.
 
-    #TO BE CHECK
+        Parameters
+        ----------
+        power : `float`
+            Power of all channel in percentage.
+
+        unit : `RS_7_1.POWER_UNIT`
+            (default to Radiance)
+            Select the unit of the power from radiance, irradiance, luminance,
+            illuminance, and percentage.
+
+        irr_distance_mm : `int`
+            (default to 0)
+            Distance from the surface of the output port of the light source to
+            the desired imaging plane. Only used for irradiance or illuminance
+            power profile.
+        """
+        self.set_spectrum_raw(self.get_spectrum_output(),power=power,power_unit=unit,irr_distance_mm=irr_distance_mm)
+        self._raise_info(f"Output spectrum power set to: {power}{self.POWER_UNIT.UNITS.value[unit.value]}, irradiance distance: {irr_distance_mm}.")
+        return None
+
+    #checked
     def set_spectrum_raw(
         self, 
         spectrum:Union[list[float], NDArray[np.float_]], 
         *,
-        power:float=100, 
+        power:float=0, 
         power_unit:POWER_UNIT=POWER_UNIT.RADIANCE, 
         include_white:bool=True, 
         fit_max_pwr:bool=False, 
@@ -580,8 +612,8 @@ class RS_7_1:
         RMS_Error : `float`
             Root-Mean-Square error for the fitted specturm vs. provided spectrum.
         """
-        if (power_unit is not self.POWER_UNIT.IRRADIANCE) and (power_unit is not self.POWER_UNIT.RADIANCE):
-            self._raise_error("Only radiance and irradiance are supported for spectrum setting!")
+        if (power_unit is self.POWER_UNIT.PERCENTAGE):
+            self._raise_error("Only Radiometric and Photometric are supported for spectrum setting!")
         self._set_power_unit(power_unit, irr_distance_mm)
         
         spectrum = list(spectrum)
@@ -589,8 +621,10 @@ class RS_7_1:
             self._raise_error("Provided spectrum data's length doesn't match current wavelength min_max setting!")
         msg_spectrum = ','.join(['{:.6f}'.format(x) for x in spectrum])
         self._com_cmd(f"TSP{msg_spectrum}")
-
-        self._com_cmd(f"STS{power:.4f}")
+        
+        if power != 0:
+            self._com_cmd(f"STS{power:.4f}")
+            self._raise_debug(f"Target spectrum power scaled to {power}{self.POWER_UNIT.UNITS.value[power_unit.value]}.")
 
         msg_cmd = "FTS"
         if include_white:
@@ -601,25 +635,23 @@ class RS_7_1:
         self._com_cmd(f"{msg_cmd}")
         if chroma_correction:
             self._com_cmd("CCS")
-        self._raise_info(f"Raw spectrum set with RMS Error:{self.get_E_rms_fitted_spectrum()}")
         return self.get_E_rms_fitted_spectrum()
 
-    #TO BE CHECK
-    def set_spectrum_CIExy(self, CIEx:float, CIEy:float) -> tuple[float, float]:
+    #checked
+    def set_spectrum_CIExy(
+        self, CIEx:float, CIEy:float,
+        power:float=0, power_unit:POWER_UNIT=POWER_UNIT.RADIANCE, irr_distance_mm:int=0
+        ) -> tuple[float, float]:
         """
         - Fit the output spectrum to a specified CIE 1931 x,y chromaticity setting.
         
-        - WARNING: Always set requested output power level before calling 
-        this function! (with `set_power_output()`)
-        
         - Set `match_chrom = Ture` when calling set_`power_fitted_spectrum()`
         to maintain the chromaticity matching. 
-        (SEE WARNING in `power_fitted_spectrum()`)
 
         Uses
         ----------
-        >>> set_power_output(30)
         >>> set_CIE_chroma(0.125, 0.246)
+        >>> set_power_output(20, match_chrom=True)
 
         Parameters
         ----------
@@ -634,17 +666,17 @@ class RS_7_1:
         (A_CIEx, A_CIEy) : `[float, float]`
             Actual fitted CIEx,y chromaticity in CIE 1931 standard.
         """
-        if self.get_power_output() <0.1:
-            self._raise_warning(f"Output power cannot be zero before setting chromaticity based spectrum, forcing it to 0.1%.")
-            self.set_power_all(0.1)
-            
+        self.set_power_all(0.1)
         self._com_cmd(f"CCS{CIEx:.6f},{CIEy:.6f}")
-        self._raise_info(f"Set output spectrum to CIExy chromaticity {CIEx:.6f},{CIEy:.6f}.")
+        if power !=0:
+            self.set_power_output(power, power_unit, irr_distance_mm)
+        self._com_cmd(f"CCS{CIEx:.6f},{CIEy:.6f}")
+        self._raise_debug(f"Set output spectrum to CIExy chromaticity {CIEx:.6f},{CIEy:.6f}.")
         return self.get_chromaticity_output()
 
-    #TO BE CHECK
+    #checked
     def set_spectrum_black_body(
-        self, temp:int, power:float=1, power_unit:POWER_UNIT=POWER_UNIT.PERCENTAGE, 
+        self, temp:int, power:float=0, power_unit:POWER_UNIT=POWER_UNIT.RADIANCE, 
         irr_distance_mm:int=0) -> float:
         """
         - Sets and fit the spectrum to be fitted by the light source, with 
@@ -661,7 +693,7 @@ class RS_7_1:
             Requested black body temperature in Kelvins.
         
         power_unit : `RS_7_1.POWER_UNIT`
-            (default to Percentage)
+            (default to radiance)
             Select the unit of the power from radiance, irradiance, luminance,
             illuminance. NO percentage setting available for spectrum based 
             output setting! 
@@ -674,8 +706,8 @@ class RS_7_1:
 
         Returns
         --------
-        RMS_Error : `float`
-            Root-Mean-Square error for the fitted specturm.
+        Color Temperature : `float`
+            Output color temperature in Kelvins.
         """
         spectrum = self._black_body_spectrum(temp)
         xmin=min(spectrum) 
@@ -684,24 +716,24 @@ class RS_7_1:
             spectrum[i] = (x-xmin) / (xmax-xmin)
         
         self._raise_info(f"Setting Output spectrum to Black Body spectrum with temperature: {temp} Kelvins.")
-        return self.set_spectrum_raw(spectrum, power=power, power_unit=power_unit, irr_distance_mm=irr_distance_mm)
+        self.set_spectrum_raw(spectrum, power=power, power_unit=power_unit, irr_distance_mm=irr_distance_mm)
+        return self.get_color_temp()
 
-    #TO BE CHECK
-    def set_spectrum_rgb(self, r:np.uint8, g:np.uint8, b:np.uint8) -> float:
+    #checked
+    def set_spectrum_rgb(
+        self, r:np.uint8, g:np.uint8, b:np.uint8,
+        power:float=0, power_unit:POWER_UNIT=POWER_UNIT.RADIANCE, irr_distance_mm:int=0
+    ) -> float:
         """
         - Set output spectrum to a specified RGB color profile.
         
-        - WARNING: Always set requested output power level before calling 
-        this function! (with `set_power_output()`)
-        
         - Set `match_chrom = Ture` when calling set_`power_fitted_spectrum()`
         to maintain the chromaticity matching. 
-        (SEE WARNING in `power_fitted_spectrum()`)
 
         Uses
         ----------
-        >>> set_power_output(30)
-        >>> set_spectrum_rgb(125,250,85)
+        >>> set_spectrum_rgb(125,250,85,5)
+        >>> set_power_output(20, match_chrom=True)
 
         Parameters
         ----------
@@ -727,26 +759,25 @@ class RS_7_1:
         Z=CIExyz[2]
         x = X / (X + Y + Z)
         y = Y / (X + Y + Z)
-        self.set_spectrum_CIExy(x,y)
+        self.set_spectrum_CIExy(x,y,power,power_unit,irr_distance_mm)
         self._raise_info(f"Output spectrum set to match RGB color: ({r}, {g}, {b})")
         return self.get_E_rms_fitted_spectrum()
 
-    #TO BE CHECK
-    def set_spectrum_pantone(self, color_name:str) -> float:
+    #checked
+    def set_spectrum_pantone(
+        self, color_name:str,
+        power:float=0, power_unit:POWER_UNIT=POWER_UNIT.RADIANCE, irr_distance_mm:int=0
+        ) -> float:
         """
         - Set output spectrum to a specified pantone color profile.
 
-        - WARNING: Always set requested output power level before calling 
-        this function! (with `set_power_output()`)
-        
         - Set `match_chrom = Ture` when calling set_`power_fitted_spectrum()`
         to maintain the chromaticity matching. 
-        (SEE WARNING in `power_fitted_spectrum()`)
 
         Uses
         ----------
-        >>> set_power_output(30)
-        >>> set_spectrum_pantone('Orange Peel')
+        >>> set_spectrum_pantone('Orange Peel',5)
+        >>> set_power_output(20, match_chrom=True)
 
         Parameters
         ----------
@@ -766,10 +797,9 @@ class RS_7_1:
         if key[0] != color:
             self._raise_warning(f"No exact match found, assuming color \"{key[0]}\"")
         (r, g, b) = (PantonePaint()[key[0]])
-        self.set_spectrum_rgb(r,g,b)
+        err = self.set_spectrum_rgb(r,g,b,power,power_unit,irr_distance_mm)
         self._raise_info(f"Output spectrum set to match Pantone Color: {key[0]}.")
-        return self.get_E_rms_fitted_spectrum()
-
+        return err
 
 
     #checked
@@ -784,12 +814,12 @@ class RS_7_1:
             
         """
         gain = float(self._com_query('FBG'))
-        self._raise_info(f"Current system optical feedback gain: {gain:.3f}")
+        self._raise_debug(f"Current system optical feedback gain: {gain:.3f}")
         return gain
 
     #checked
     def get_power_output(
-        self, unit:POWER_UNIT=POWER_UNIT.PERCENTAGE, irr_distance_mm:int = 0) -> float:
+        self, unit:POWER_UNIT=POWER_UNIT.RADIANCE, irr_distance_mm:int = 0) -> float:
         """
         - Get the output power of the overall system in specified unit.
 
@@ -814,10 +844,10 @@ class RS_7_1:
         self._set_power_unit(unit, irr_distance_mm)
         cmd = f"OUTA"
         pwr=float(self._com_query(cmd))
-        self._raise_info(f"Total output power: {pwr}.")
+        self._raise_debug(f"Total output power: {pwr}{self.POWER_UNIT.UNITS.value[unit.value]}.")
         return pwr
 
-    #TO BE CHECK
+    #checked
     def get_power_all_chans(
         self, unit:POWER_UNIT=POWER_UNIT.PERCENTAGE, irr_distance_mm:int = 0
         ) -> tuple([list[int], list[float]]):
@@ -856,8 +886,8 @@ class RS_7_1:
             powers.append(resp.split(',')[1])
             resp = self._com.readline()
             
-            self._raise_info(f"All ON LEDs power info received.")
-            return (chans,powers)
+        self._raise_debug(f"All ON LEDs power info received.")
+        return (chans,powers)
 
     #checked
     def get_color_temp(self) -> float:
@@ -875,7 +905,7 @@ class RS_7_1:
             temp=float(temp)
         else:
             temp=0
-        self._raise_info(f"Current output spectrum's equivalence color temperature: {temp:.1f} Kelvins.")
+        self._raise_debug(f"Current output spectrum's equivalence color temperature: {temp:.1f} Kelvins.")
         return temp
 
     #checked
@@ -889,7 +919,7 @@ class RS_7_1:
             Root-Mean-Square error for the fitted specturm vs. provided spectrum.
         """
         erms = float(self._com_query("RPE"))
-        self._raise_info(f"Output spectrum matching RMS Error: {erms:.3f}.")
+        self._raise_debug(f"Output spectrum matching RMS Error: {erms:.3f}.")
         return erms
 
     #checked
@@ -903,7 +933,7 @@ class RS_7_1:
             Actual fitted CIEx,y chromaticity in CIE 1931 standard.
         """
         CIExy = list(map(float, self._com_query("OXY").split(',')))
-        self._raise_info(f"Actual output spectrum in CIExy chromaticity {CIExy[0]},{CIExy[1]}.")
+        self._raise_debug(f"Actual output spectrum in CIExy chromaticity {CIExy[0]},{CIExy[1]}.")
         return (CIExy[0], CIExy[1])
 
     #checked
@@ -923,7 +953,7 @@ class RS_7_1:
             Actual fitted CIEx,y chromaticity in CIE 1931 standard.
         """
         CIExyz = list(map(float, self._com_query("OXYZ").split(',')))
-        self._raise_info(f"Actual output spectrum in CIExyz space: {CIExyz[0]:.3f},{CIExyz[1]:.3f},{CIExyz[2]:.3f}")
+        self._raise_debug(f"Actual output spectrum in CIExyz space: {CIExyz[0]:.3f},{CIExyz[1]:.3f},{CIExyz[2]:.3f}")
         return (CIExyz[0], CIExyz[1], CIExyz[2])
 
     #checked
@@ -947,7 +977,7 @@ class RS_7_1:
         self._set_power_unit(power_unit)
         spectrum = self._com_query("OSP")
         spectrum = list(map(float, spectrum.split(',')))
-        self._raise_info(f"Actual output spectrum received with power unit {power_unit}.")
+        self._raise_debug(f"Actual output spectrum received with power unit {power_unit}.")
         return spectrum
 
     #checked
@@ -981,15 +1011,16 @@ class RS_7_1:
         self._set_power_unit(power_unit)
         spectrum = self._com_query(f"OSP{led_chan}")
         spectrum = list(map(float, spectrum.split(',')))
-        self._raise_info(f"Actual spectrum of LED channel {led_chan} in unit {power_unit} received.")
+        self._raise_debug(f"Actual spectrum of LED channel {led_chan} in unit {power_unit} received.")
         return spectrum
 
     def close(self) -> None:
         if self._com is not None:
             self.set_power_all(0)
+            self.set_iris_position(100)
             self._com.close()
             del self._com
-        logger.info(f"CLOSED - RS_7_1 ({self.device_id}) Tunable Light Source.\n\n\n")
+        logger.success(f"CLOSED - RS_7_1 ({self.device_id}) Tunable Light Source.\n\n\n")
         pass
 
     """
